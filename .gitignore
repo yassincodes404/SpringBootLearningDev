@@ -1,0 +1,56 @@
+# ===== Build Artifacts =====
+target/
+*.class
+*.jar
+*.war
+
+# ===== Maven =====
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ===== Node.js =====
+node_modules/
+dist/
+build/
+.cache/
+*.tsbuildinfo
+
+# ===== Environment =====
+.env
+.env.local
+.env.*.local
+
+# ===== IDE =====
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.factorypath
+.settings/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== Misc =====
+*.bak
+*.tmp
+*.temp
+.terraform/
+*.tfstate
+*.tfstate.backup

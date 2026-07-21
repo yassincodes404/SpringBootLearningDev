@@ -1,0 +1,42 @@
+# ==============================================================================
+# Application Configuration — Default (shared across all profiles)
+# ==============================================================================
+
+spring:
+  application:
+    name: my-project
+
+  # ---- JPA / Hibernate ----
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate  # Flyway handles schema — Hibernate only validates
+    properties:
+      hibernate:
+        format_sql: true
+
+  # ---- Flyway ----
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# ---- Server ----
+server:
+  port: ${SERVER_PORT:8080}
+
+# ---- Actuator ----
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# ---- OpenAPI / Swagger ----
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

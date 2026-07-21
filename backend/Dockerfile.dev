@@ -1,0 +1,25 @@
+# ==============================================================================
+# Development Dockerfile
+# ==============================================================================
+# Uses spring-boot-devtools for hot-reload during development.
+# ==============================================================================
+
+FROM eclipse-temurin:21-jdk-alpine
+
+WORKDIR /app
+
+# Copy Maven wrapper and POM first (layer caching)
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+
+# Copy source
+COPY src/ src/
+
+# Expose port and debug port
+EXPOSE 8080 5005
+
+# Run with dev profile and remote debugging enabled
+ENTRYPOINT ["./mvnw", "spring-boot:run", \
+    "-Dspring-boot.run.profiles=dev", \
+    "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"]

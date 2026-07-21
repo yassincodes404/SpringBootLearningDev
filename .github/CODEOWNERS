@@ -1,0 +1,21 @@
+# ==============================================================================
+# CODEOWNERS
+# ==============================================================================
+# GitHub will automatically request reviews from these owners
+# when a PR touches their files.
+# ==============================================================================
+
+# Default owner for everything
+*       @your-username
+
+# Backend
+/backend/       @your-username
+
+# Frontend
+/frontend/      @your-username
+
+# Infrastructure
+/infrastructure/    @your-username
+
+# CI/CD
+/.github/       @your-username

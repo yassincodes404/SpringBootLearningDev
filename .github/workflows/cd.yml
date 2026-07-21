@@ -1,0 +1,60 @@
+# ==============================================================================
+# CD Pipeline — Continuous Deployment
+# ==============================================================================
+# Triggered when CI passes on main branch.
+# ==============================================================================
+
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      # ---- Checkout ----
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---- Docker Build ----
+      - name: Build Docker image
+        working-directory: backend
+        run: |
+          docker build -t myproject-backend:${{ github.sha }} .
+          docker tag myproject-backend:${{ github.sha }} myproject-backend:latest
+
+      # TODO: Push to Azure Container Registry
+      # - name: Login to ACR
+      #   uses: azure/docker-login@v1
+      #   with:
+      #     login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+      #     username: ${{ secrets.ACR_USERNAME }}
+      #     password: ${{ secrets.ACR_PASSWORD }}
+      #
+      # - name: Push to ACR
+      #   run: |
+      #     docker tag myproject-backend:latest ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
+      #     docker push ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
+
+      # TODO: Deploy to Azure App Service
+      # - name: Deploy to Azure
+      #   uses: azure/webapps-deploy@v3
+      #   with:
+      #     app-name: 'myproject-backend'
+      #     images: '${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest'
+
+      # TODO: Health Check
+      # - name: Verify deployment
+      #   run: |
+      #     sleep 30
+      #     curl -f https://myproject-backend.azurewebsites.net/actuator/health
+
+      - name: Deployment placeholder
+        run: echo "🚀 CD pipeline is configured but deployment targets are not yet set up."

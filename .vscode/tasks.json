@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend: Run (dev)",
+      "type": "shell",
+      "command": "./mvnw spring-boot:run -Dspring-boot.run.profiles=dev",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Test",
+      "type": "shell",
+      "command": "./mvnw test",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Build",
+      "type": "shell",
+      "command": "./mvnw clean package -DskipTests",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Dev Up",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.dev.yml up -d",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Dev Down",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.dev.yml down",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": []
+    }
+  ]
+}

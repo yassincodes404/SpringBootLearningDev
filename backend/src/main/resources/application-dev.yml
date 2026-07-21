@@ -1,0 +1,35 @@
+# ==============================================================================
+# Development Profile
+# ==============================================================================
+
+spring:
+  # ---- Database ----
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:myproject}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  # ---- JPA (dev-friendly settings) ----
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  # ---- Mail (MailHog) ----
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+
+  # ---- DevTools ----
+  devtools:
+    restart:
+      enabled: true
+
+# ---- Logging ----
+logging:
+  level:
+    com.example.project: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
