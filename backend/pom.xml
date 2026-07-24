@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- ==================== Parent ==================== -->
+    <!-- Parent -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -12,14 +12,14 @@
         <relativePath/>
     </parent>
 
-    <!-- ==================== Project Coordinates ==================== -->
+    <!-- Project coordinates -->
     <groupId>com.example</groupId>
     <artifactId>project</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>project</name>
     <description>Production-ready Spring Boot SaaS application</description>
 
-    <!-- ==================== Properties ==================== -->
+    <!-- Properties -->
     <properties>
         <java.version>21</java.version>
         <springdoc.version>2.6.0</springdoc.version>
@@ -28,7 +28,7 @@
     <!-- ==================== Dependencies ==================== -->
     <dependencies>
 
-        <!-- ---- Spring Boot Starters ---- -->
+        <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -59,7 +59,7 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
-        <!-- ---- Database ---- -->
+        <!-- Database -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -76,14 +76,14 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- ---- API Documentation ---- -->
+        <!-- API documentation -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
 
-        <!-- ---- Developer Tools ---- -->
+        <!-- Developer tools -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -97,7 +97,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- ---- Testing ---- -->
+        <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -112,7 +112,7 @@
 
     </dependencies>
 
-    <!-- ==================== Build ==================== -->
+    <!-- Build -->
     <build>
         <plugins>
             <plugin>
