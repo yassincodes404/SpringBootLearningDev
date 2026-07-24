@@ -16,7 +16,8 @@ fi
 
 echo "🔄 Restoring from: $LATEST_BACKUP"
 
-docker compose -f docker-compose.dev.yml exec -T postgres \
+docker compose --env-file .env.local -f infrastructure/compose/dev.yml \
+    exec -T postgres \
     psql -U "${DB_USERNAME:-postgres}" "${DB_NAME:-myproject}" < "$LATEST_BACKUP"
 
 echo "✅ Database restored successfully."

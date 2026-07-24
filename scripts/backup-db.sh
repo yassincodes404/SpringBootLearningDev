@@ -12,7 +12,8 @@ mkdir -p "$BACKUP_DIR"
 
 echo "💾 Backing up database..."
 
-docker compose -f docker-compose.dev.yml exec -T postgres \
+docker compose --env-file .env.local -f infrastructure/compose/dev.yml \
+    exec -T postgres \
     pg_dump -U "${DB_USERNAME:-postgres}" "${DB_NAME:-myproject}" > "$BACKUP_FILE"
 
 echo "✅ Backup saved to: $BACKUP_FILE"

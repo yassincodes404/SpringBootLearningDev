@@ -71,7 +71,7 @@
     {
       "label": "Docker: Dev Up",
       "type": "shell",
-      "command": "docker compose -f docker-compose.dev.yml up -d",
+      "command": "docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d",
       "options": {
         "cwd": "${workspaceFolder}",
         "shell": {
@@ -87,7 +87,7 @@
     {
       "label": "Docker: Dev Down",
       "type": "shell",
-      "command": "docker compose -f docker-compose.dev.yml down",
+      "command": "docker compose --env-file .env.local -f infrastructure/compose/dev.yml down",
       "options": {
         "cwd": "${workspaceFolder}",
         "shell": {

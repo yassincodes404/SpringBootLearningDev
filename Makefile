@@ -2,7 +2,12 @@
 # Makefile — Common development commands
 # ==============================================================================
 
-.PHONY: help dev-up dev-down build test lint clean
+.PHONY: help dev-up dev-down dev-logs build test test-unit test-integration \
+        lint format run frontend-install frontend-dev frontend-build \
+        prod-up prod-down db-backup db-restore clean
+
+COMPOSE_DEV  = docker compose --env-file .env.local  -f infrastructure/compose/dev.yml
+COMPOSE_PROD = docker compose --env-file .env.production -f infrastructure/compose/prod.yml
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -10,14 +15,14 @@ help: ## Show this help
 
 # --------------- Development Infrastructure ---------------
 
-dev-up: ## Start development services (Postgres, Redis, pgAdmin, MailHog)
-	docker compose -f docker-compose.dev.yml up -d
+dev-up: ## Start development services (Phase 1: PostgreSQL + pgAdmin)
+	$(COMPOSE_DEV) up -d
 
 dev-down: ## Stop development services
-	docker compose -f docker-compose.dev.yml down
+	$(COMPOSE_DEV) down
 
 dev-logs: ## Tail development service logs
-	docker compose -f docker-compose.dev.yml logs -f
+	$(COMPOSE_DEV) logs -f
 
 # --------------- Backend ---------------
 
@@ -56,10 +61,10 @@ frontend-build: ## Build frontend for production
 # --------------- Docker (Production) ---------------
 
 prod-up: ## Start production stack
-	docker compose -f docker-compose.prod.yml up -d --build
+	$(COMPOSE_PROD) up -d --build
 
 prod-down: ## Stop production stack
-	docker compose -f docker-compose.prod.yml down
+	$(COMPOSE_PROD) down
 
 # --------------- Database ---------------
 

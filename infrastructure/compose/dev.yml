@@ -1,0 +1,26 @@
+# ==============================================================================
+# Docker Compose — Development Environment
+# ==============================================================================
+# Single entry point for all local development infrastructure.
+# Assembles layers via `include` — add new layers here as phases progress.
+#
+# Usage (always from project root):
+#   Start:  docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d
+#   Stop:   docker compose --env-file .env.local -f infrastructure/compose/dev.yml down
+#   Logs:   docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs -f
+#
+# Or simply: make dev-up / make dev-down
+# ==============================================================================
+
+include:
+  # Phase 1 — Always on: database is the minimum requirement
+  - database.yml
+
+  # Phase 2 — Add caching: uncomment when you implement Redis
+  # - cache.yml
+
+  # Phase 3 — Add file storage: uncomment when implementing file uploads
+  # - storage.yml
+
+  # Phase 4 — Add messaging: uncomment when implementing async jobs
+  # - messaging.yml

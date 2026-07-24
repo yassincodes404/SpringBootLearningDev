@@ -17,9 +17,11 @@ build/
 *.tsbuildinfo
 
 # ===== Environment =====
+# Local and production secrets — never commit these
 .env
 .env.local
-.env.*.local
+.env.production
+# .env.example is intentionally committed as a template
 
 # ===== IDE =====
 .idea/
@@ -46,6 +48,9 @@ logs/
 
 # ===== Docker =====
 docker-compose.override.yml
+
+# ===== Backups =====
+backups/
 
 # ===== Misc =====
 *.bak

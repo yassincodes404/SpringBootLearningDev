@@ -6,6 +6,6 @@ set -euo pipefail
 
 echo "🛑 Stopping development environment..."
 
-docker compose -f docker-compose.dev.yml down
+docker compose --env-file .env.local -f infrastructure/compose/dev.yml down
 
 echo "✅ Development environment stopped."
