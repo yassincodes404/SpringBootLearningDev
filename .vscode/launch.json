@@ -7,9 +7,13 @@
       "request": "launch",
       "mainClass": "com.example.project.ProjectApplication",
       "projectName": "project",
-      "args": "--spring.profiles.active=dev",
+      "args": [
+        "-Dspring-boot.run.profiles=dev"
+      ],
       "cwd": "${workspaceFolder}/backend",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     },
     {
       "type": "java",
