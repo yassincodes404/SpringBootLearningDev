@@ -73,7 +73,8 @@ location of your Java installation."
 fi
 
 # hash://sha-256 checksum of maven-wrapper.jar
-wrapperJarPath="$(cd -- "$(dirname -- "$0")" && pwd -P)/.mvn/wrapper/maven-wrapper.jar"
+MAVEN_PROJECTBASEDIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
+wrapperJarPath="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.jar"
 wrapperUrl="https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.3.2/maven-wrapper-3.3.2.jar"
 distributionUrl="https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.8/apache-maven-3.9.8-bin.zip"
 
@@ -110,6 +111,7 @@ fi
 
 # Run maven-wrapper.jar
 exec "$JAVACMD" \
+  "-Dmaven.multiModuleProjectDirectory=$MAVEN_PROJECTBASEDIR" \
   ${JAVA_HOME:+"-Dmaven.home=${JAVA_HOME}"} \
   -classpath "$wrapperJarPath" \
   org.apache.maven.wrapper.MavenWrapperMain \

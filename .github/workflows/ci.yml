@@ -61,12 +61,12 @@ jobs:
       # ---- Compile ----
       - name: Compile
         working-directory: backend
-        run: ./mvnw compile -B
+        run: ./mvnw compile -B -Dmaven.multiModuleProjectDirectory=.
 
       # ---- Unit Tests ----
       - name: Run unit tests
         working-directory: backend
-        run: ./mvnw test -B
+        run: ./mvnw test -B -Dmaven.multiModuleProjectDirectory=.
 
       # ---- Integration Tests ----
       - name: Run integration tests
@@ -78,12 +78,12 @@ jobs:
           DB_NAME: myproject_test
           DB_USERNAME: postgres
           DB_PASSWORD: password
-        run: ./mvnw test -B -Dgroups=integration
+        run: ./mvnw test -B -Dgroups=integration -Dmaven.multiModuleProjectDirectory=.
 
       # ---- Build ----
       - name: Package JAR
         working-directory: backend
-        run: ./mvnw package -DskipTests -B
+        run: ./mvnw package -DskipTests -B -Dmaven.multiModuleProjectDirectory=.
 
       # TODO: Add Spotless check
       # - name: Check code formatting
