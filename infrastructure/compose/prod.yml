@@ -30,6 +30,7 @@ services:
 
   # ---- Backend (Spring Boot) ----
   backend:
+    image: ${BACKEND_IMAGE:-myproject-backend:latest}
     build:
       context: ../../backend
       dockerfile: Dockerfile
@@ -54,6 +55,7 @@ services:
 
   # ---- Frontend (React) ----
   frontend:
+    image: ${FRONTEND_IMAGE:-myproject-frontend:latest}
     build:
       context: ../../frontend
       dockerfile: Dockerfile

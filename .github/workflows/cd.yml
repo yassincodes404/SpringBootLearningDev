@@ -8,53 +8,81 @@ name: CD
 
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: ["CI"]
     types: [completed]
     branches: [main]
 
+env:
+  REGISTRY: ghcr.io
+
 jobs:
   deploy:
-    name: Deploy to Azure
+    name: Deploy to Azure VM
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       # ---- Checkout ----
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ---- Docker Build ----
-      - name: Build Docker image
-        working-directory: backend
-        run: |
-          docker build -t myproject-backend:${{ github.sha }} .
-          docker tag myproject-backend:${{ github.sha }} myproject-backend:latest
+      # ---- GHCR Login ----
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # TODO: Push to Azure Container Registry
-      # - name: Login to ACR
-      #   uses: azure/docker-login@v1
-      #   with:
-      #     login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-      #     username: ${{ secrets.ACR_USERNAME }}
-      #     password: ${{ secrets.ACR_PASSWORD }}
-      #
-      # - name: Push to ACR
-      #   run: |
-      #     docker tag myproject-backend:latest ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
-      #     docker push ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
+      # ---- Build & Push Backend ----
+      - name: Build and push Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest
 
-      # TODO: Deploy to Azure App Service
-      # - name: Deploy to Azure
-      #   uses: azure/webapps-deploy@v3
-      #   with:
-      #     app-name: 'myproject-backend'
-      #     images: '${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest'
+      # ---- Build & Push Frontend ----
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
 
-      # TODO: Health Check
-      # - name: Verify deployment
-      #   run: |
-      #     sleep 30
-      #     curl -f https://myproject-backend.azurewebsites.net/actuator/health
+      # ---- Copy Infrastructure Configs to Azure VM ----
+      - name: Copy infrastructure configs to Azure VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          source: "infrastructure/"
+          target: "~/app"
 
-      - name: Deployment placeholder
-        run: echo "🚀 CD pipeline is configured but deployment targets are not yet set up."
+      # ---- Deploy to Azure VM via SSH ----
+      - name: Deploy containers on Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            cd ~/app
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            
+            BACKEND_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ github.sha }} \
+            FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ github.sha }} \
+            docker compose -f infrastructure/compose/prod.yml up -d --remove-orphans
+            
+            docker image prune -af
+
