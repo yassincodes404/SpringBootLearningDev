@@ -1,17 +1,20 @@
 # ==============================================================================
 # Frontend Production Dockerfile
 # ==============================================================================
-# Stage 1: Build the React app
+# Stage 1: Build the React app with Vite
 # Stage 2: Serve with NGINX
 # ==============================================================================
 
 # ---- Build Stage ----
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# Copy package files first for layer caching
 COPY package.json package-lock.json* ./
-RUN npm ci
+
+# Use npm ci if lock file exists, otherwise npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 COPY . .
 RUN npm run build
