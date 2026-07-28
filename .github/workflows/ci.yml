@@ -53,6 +53,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
+      # ---- Make wrapper executable ----
+      - name: Make Maven wrapper executable
+        working-directory: backend
+        run: chmod +x ./mvnw
+
       # ---- Compile ----
       - name: Compile
         working-directory: backend
