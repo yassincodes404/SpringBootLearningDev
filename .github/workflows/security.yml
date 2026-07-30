@@ -1,0 +1,95 @@
+# ==============================================================================
+# Security Scanning Pipeline (Seed)
+# ==============================================================================
+# Responsibility: Scan for vulnerabilities in dependencies and code.
+# Runs weekly on a schedule and on PRs to main.
+#
+# STATUS: Seed — uncomment sections as needed.
+# ==============================================================================
+
+name: Security
+
+on:
+  schedule:
+    # Run every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  # ----------------------------------------------------
+  # Job 1: Dependency Vulnerability Scanning
+  # ----------------------------------------------------
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---- Backend: Maven dependency audit ----
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Make Maven wrapper executable
+        working-directory: backend
+        run: chmod +x ./mvnw
+
+      - name: Backend — Check for vulnerable dependencies
+        working-directory: backend
+        run: ./mvnw dependency:tree -B -Dmaven.multiModuleProjectDirectory=.
+        # TODO: Replace with OWASP dependency-check when ready:
+        # run: ./mvnw org.owasp:dependency-check-maven:check -B
+
+      # ---- Frontend: npm audit ----
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend — Audit dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high || true
+        # Using || true to not fail the build on advisories for now.
+        # Remove || true when you want to enforce strict auditing.
+
+  # ----------------------------------------------------
+  # Job 2: CodeQL Analysis (Seed)
+  # ----------------------------------------------------
+  # Uncomment when ready — CodeQL is free for public repos.
+  #
+  # codeql:
+  #   name: CodeQL Analysis
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     security-events: write
+  #
+  #   strategy:
+  #     matrix:
+  #       language: ['java', 'javascript']
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Initialize CodeQL
+  #       uses: github/codeql-action/init@v3
+  #       with:
+  #         languages: ${{ matrix.language }}
+  #
+  #     - name: Auto-build
+  #       uses: github/codeql-action/autobuild@v3
+  #
+  #     - name: Perform CodeQL Analysis
+  #       uses: github/codeql-action/analyze@v3

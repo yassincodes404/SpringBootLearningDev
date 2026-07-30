@@ -1,0 +1,127 @@
+# ==============================================================================
+# Android Build Pipeline — React Native (Seed)
+# ==============================================================================
+# Responsibility: Build Android APK and AAB for release.
+# Triggered ONLY on release tags (v*).
+#
+# STATUS: Seed — requires a frontend-mobile/ project with React Native.
+#
+# Prerequisites:
+#   1. Create frontend-mobile/ directory with React Native
+#   2. Recommended setup: npx react-native init frontend-mobile
+#   3. Uncomment the jobs below when ready
+#
+# Expected outputs (attached to GitHub Release):
+#   - Android APK (for direct install / testing)
+#   - Android AAB (for Google Play Store)
+# ==============================================================================
+
+name: Android Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ----------------------------------------------------
+  # Seed: Uncomment when frontend-mobile/ project is ready
+  # ----------------------------------------------------
+
+  placeholder:
+    name: Android Build (Not Configured)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip — Mobile project not set up yet
+        run: |
+          echo "ℹ️ Android build skipped."
+          echo "   To enable: create a frontend-mobile/ project with React Native"
+          echo "   and uncomment the build jobs in this workflow."
+
+  # ----------------------------------------------------
+  # Build Android APK & AAB
+  # ----------------------------------------------------
+  # build:
+  #   name: Build Android
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Set up JDK 17 (required by Android/Gradle)
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         java-version: '17'
+  #         distribution: 'temurin'
+  #
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #
+  #     - name: Install JS dependencies
+  #       working-directory: frontend-mobile
+  #       run: npm ci
+  #
+  #     - name: Set up Android SDK
+  #       uses: android-actions/setup-android@v3
+  #
+  #     - name: Build APK (debug)
+  #       working-directory: frontend-mobile/android
+  #       run: ./gradlew assembleRelease
+  #
+  #     - name: Build AAB (for Play Store)
+  #       working-directory: frontend-mobile/android
+  #       run: ./gradlew bundleRelease
+  #
+  #     - name: Upload APK artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: android-apk
+  #         path: frontend-mobile/android/app/build/outputs/apk/release/*.apk
+  #
+  #     - name: Upload AAB artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: android-aab
+  #         path: frontend-mobile/android/app/build/outputs/bundle/release/*.aab
+  #
+  # # ----------------------------------------------------
+  # # Attach Android Artifacts to GitHub Release
+  # # ----------------------------------------------------
+  # attach-to-release:
+  #   name: Attach to Release
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: write
+  #
+  #   steps:
+  #     - name: Download Android artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: ./android-assets
+  #         pattern: android-*
+  #         merge-multiple: true
+  #
+  #     - name: Attach to GitHub Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         files: ./android-assets/**
+  #
+  # # ----------------------------------------------------
+  # # Future: Publish to Google Play (Seed)
+  # # ----------------------------------------------------
+  # # publish:
+  # #   name: Publish to Google Play
+  # #   needs: build
+  # #   runs-on: ubuntu-latest
+  # #   steps:
+  # #     - name: Upload to Google Play
+  # #       uses: r0adkll/upload-google-play@v1
+  # #       with:
+  # #         serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+  # #         packageName: com.example.myproject
+  # #         releaseFiles: ./android-assets/*.aab
+  # #         track: internal

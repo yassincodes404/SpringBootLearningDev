@@ -1,0 +1,110 @@
+# ==============================================================================
+# Desktop Build Pipeline — Electron (Seed)
+# ==============================================================================
+# Responsibility: Build desktop installers for Windows, Linux, and macOS.
+# Triggered ONLY on release tags (v*).
+#
+# STATUS: Seed — requires a desktop/ project with Electron to be set up.
+#
+# Prerequisites:
+#   1. Create desktop/ directory with an Electron app
+#   2. Recommended setup: npx create-electron-app desktop/
+#   3. Or use electron-builder with your existing React frontend
+#   4. Uncomment the jobs below when ready
+#
+# Expected outputs (attached to GitHub Release):
+#   - Windows: .exe installer + .zip portable
+#   - Linux:   .AppImage + .tar.gz
+#   - macOS:   .dmg
+# ==============================================================================
+
+name: Desktop Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ----------------------------------------------------
+  # Seed: Uncomment when desktop/ project is ready
+  # ----------------------------------------------------
+
+  placeholder:
+    name: Desktop Build (Not Configured)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip — Desktop project not set up yet
+        run: |
+          echo "ℹ️ Desktop build skipped."
+          echo "   To enable: create a desktop/ project with Electron"
+          echo "   and uncomment the build jobs in this workflow."
+
+  # ----------------------------------------------------
+  # Build Matrix — Windows, Linux, macOS
+  # ----------------------------------------------------
+  # build:
+  #   name: Build — ${{ matrix.os }}
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - os: windows-latest
+  #           artifact: windows-installer
+  #         - os: ubuntu-latest
+  #           artifact: linux-appimage
+  #         - os: macos-latest
+  #           artifact: macos-dmg
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #
+  #     - name: Install dependencies
+  #       working-directory: desktop
+  #       run: npm ci
+  #
+  #     - name: Build Electron app
+  #       working-directory: desktop
+  #       run: npm run build
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #     - name: Upload desktop artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: desktop-${{ matrix.artifact }}
+  #         path: |
+  #           desktop/dist/*.exe
+  #           desktop/dist/*.zip
+  #           desktop/dist/*.AppImage
+  #           desktop/dist/*.tar.gz
+  #           desktop/dist/*.dmg
+  #
+  # # ----------------------------------------------------
+  # # Attach Desktop Artifacts to GitHub Release
+  # # ----------------------------------------------------
+  # attach-to-release:
+  #   name: Attach to Release
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: write
+  #
+  #   steps:
+  #     - name: Download all desktop artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: ./desktop-assets
+  #         pattern: desktop-*
+  #         merge-multiple: true
+  #
+  #     - name: Attach to GitHub Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         files: ./desktop-assets/**
