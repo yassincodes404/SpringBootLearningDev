@@ -1,7 +1,7 @@
 # ==============================================================================
 # CD Pipeline — Continuous Deployment
 # ==============================================================================
-# Triggered when CI passes on main branch.
+# Builds and pushes backend/frontend images to GHCR and deploys them to an Azure VM.
 # ==============================================================================
 
 name: CD
@@ -11,50 +11,121 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   deploy:
-    name: Deploy to Azure
+    name: Deploy to Azure VM
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    env:
+      DEPLOY_DIR: ~/app/springbootlearning
 
     steps:
-      # ---- Checkout ----
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ---- Docker Build ----
-      - name: Build Docker image
-        working-directory: backend
+      - name: Set lowercase image owner
+        run: echo "IMAGE_OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Set deployment tag
         run: |
-          docker build -t myproject-backend:${{ github.sha }} .
-          docker tag myproject-backend:${{ github.sha }} myproject-backend:latest
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "DEPLOY_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_TAG=latest" >> $GITHUB_ENV
+          fi
 
-      # TODO: Push to Azure Container Registry
-      # - name: Login to ACR
-      #   uses: azure/docker-login@v1
-      #   with:
-      #     login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-      #     username: ${{ secrets.ACR_USERNAME }}
-      #     password: ${{ secrets.ACR_PASSWORD }}
-      #
-      # - name: Push to ACR
-      #   run: |
-      #     docker tag myproject-backend:latest ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
-      #     docker push ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # TODO: Deploy to Azure App Service
-      # - name: Deploy to Azure
-      #   uses: azure/webapps-deploy@v3
-      #   with:
-      #     app-name: 'myproject-backend'
-      #     images: '${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest'
+      - name: Docker metadata for backend
+        id: meta_backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.IMAGE_OWNER_LC }}/springbootlearning-backend
+          tags: |
+            type=raw,value=${{ env.DEPLOY_TAG }}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      # TODO: Health Check
-      # - name: Verify deployment
-      #   run: |
-      #     sleep 30
-      #     curl -f https://myproject-backend.azurewebsites.net/actuator/health
+      - name: Docker metadata for frontend
+        id: meta_frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.IMAGE_OWNER_LC }}/springbootlearning-frontend
+          tags: |
+            type=raw,value=${{ env.DEPLOY_TAG }}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Deployment placeholder
-        run: echo "🚀 CD pipeline is configured but deployment targets are not yet set up."
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta_backend.outputs.tags }}
+          labels: ${{ steps.meta_backend.outputs.labels }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta_frontend.outputs.tags }}
+          labels: ${{ steps.meta_frontend.outputs.labels }}
+
+      - name: Copy compose file to Azure VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml"
+          target: ${{ env.DEPLOY_DIR }}
+          strip_components: 0
+
+      - name: Copy nginx config to Azure VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          source: "infrastructure/nginx/nginx.conf"
+          target: ${{ env.DEPLOY_DIR }}/infrastructure/nginx
+          strip_components: 0
+
+      - name: Deploy to Azure VM
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ${{ env.DEPLOY_DIR }}/infrastructure/nginx
+            cd ${{ env.DEPLOY_DIR }}
+            cat > .env <<EOF
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            BACKEND_IMAGE=ghcr.io/${{ env.IMAGE_OWNER_LC }}/springbootlearning-backend:${{ env.DEPLOY_TAG }}
+            FRONTEND_IMAGE=ghcr.io/${{ env.IMAGE_OWNER_LC }}/springbootlearning-frontend:${{ env.DEPLOY_TAG }}
+            EOF
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -f docker-compose.prod.yml --env-file .env pull
+            docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml --env-file .env ps

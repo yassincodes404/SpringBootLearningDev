@@ -25,10 +25,9 @@ services:
 
   # ---- Backend (Spring Boot) ----
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-ghcr.io/yassincodes404/springbootlearning-backend:latest}
     container_name: myproject-backend
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -46,7 +45,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -54,10 +53,9 @@ services:
 
   # ---- Frontend (React served by NGINX) ----
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${FRONTEND_IMAGE:-ghcr.io/yassincodes404/springbootlearning-frontend:latest}
     container_name: myproject-frontend
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "3000:80"
