@@ -52,6 +52,13 @@ docker-compose.override.yml
 # ===== Backups =====
 backups/
 
+# ===== SSH Keys & Credentials =====
+# NEVER commit private keys
+*.pem
+*.key
+id_rsa
+id_ed25519
+
 # ===== Misc =====
 *.bak
 *.tmp
