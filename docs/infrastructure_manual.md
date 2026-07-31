@@ -1,6 +1,6 @@
 # Infrastructure Manual
 
-> **Tested** ✅ — PostgreSQL 16.14, pgAdmin, uuid-ossp + pg_trgm extensions confirmed working.
+> **Status** ✅ — PostgreSQL 16 Alpine, pgAdmin 4, NGINX reverse proxy, and GitHub Actions CD to Azure VM fully configured.
 
 ---
 
@@ -8,321 +8,91 @@
 
 | What you want | Command |
 |---|---|
-| Start dev environment | `docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d` |
-| Stop dev environment | `docker compose --env-file .env.local -f infrastructure/compose/dev.yml down` |
-| View logs | `docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs -f` |
-| Check what's running | `docker ps` |
+| Start dev environment (Unified) | `scripts\run_dev.bat` (Win) or `make dev` (Bash) |
+| Stop dev environment | `scripts\stop_dev.bat` (Win) or `make dev-down` |
+| Start DB only (Docker) | `docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d` |
+| View DB container logs | `docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs -f` |
 | Connect to DB shell | `docker compose --env-file .env.local -f infrastructure/compose/dev.yml exec postgres psql -U postgres -d myproject` |
 | Backup database | `bash scripts/backup-db.sh` |
 | Restore database | `bash scripts/restore-db.sh` |
 
-> **Windows note**: `make` is not available in PowerShell by default.
-> All `make` targets map directly to the raw `docker compose` commands above.
-> To install `make` on Windows: `winget install GnuWin32.Make` or use Git Bash.
-
 ---
 
-## 1. First-Time Setup
+## 1. Local Development Setup
 
-### 1.1 Create your local env file
+### 1.1 Environment Configuration
+
+Copy [.env.example](file:///e:/Projects/SpringBootLearningDev/.env.example) to `.env.local`:
 
 ```bash
-# Copy the example — do this once
 cp .env.example .env.local
 ```
 
-> [!IMPORTANT]
-> `.env.local` is gitignored and never committed. It holds your personal dev secrets.
-> `.env.example` is committed and serves as the canonical template.
-
-### 1.2 Review `.env.local`
-
-Open [.env.local](file:///e:/Projects/SpringBootLearningDev/.env.local) and check the values.
-The defaults work out of the box for local development — no changes needed to start.
-
+`.env.local` contains default local credentials:
 ```env
 DB_NAME=myproject
 DB_USERNAME=postgres
-DB_PASSWORD=password     ← fine locally, never use this in production
+DB_PASSWORD=password
 ```
 
-### 1.3 Start the environment
+### 1.2 Starting Dev Environment
 
-```bash
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d
-```
+Run the unified dev launcher:
+- **Windows**: `scripts\run_dev.bat`
+- **Linux/Mac**: `make dev`
 
-Expected output (all green):
-```
-✔ Network compose_default    Created
-✔ Volume compose_postgres-data   Created
-✔ Volume compose_pgadmin-data    Created
-✔ Container myproject-postgres   Started
-✔ Container myproject-pgadmin    Started
-```
-
-### 1.4 Verify it's running
-
-```bash
-docker ps
-```
-
-You should see **exactly two containers**:
-
-```
-NAMES                STATUS                    PORTS
-myproject-pgadmin    Up N seconds              0.0.0.0:5050->80/tcp
-myproject-postgres   Up N seconds (healthy)    0.0.0.0:5432->5432/tcp
-```
-
-> [!NOTE]
-> `(healthy)` means the healthcheck passed — PostgreSQL accepted the `pg_isready` probe.
-> pgAdmin will say `Up` without a health badge, which is normal.
+The script:
+1. Verifies Docker, Java 21, and Node.js prerequisites.
+2. Boots PostgreSQL 16 and pgAdmin in Docker.
+3. Waits for PostgreSQL healthcheck (`pg_isready`).
+4. Launches Spring Boot and Vite with color-coded log streams.
 
 ---
 
-## 2. Daily Workflow
-
-### Start your day
-
-```bash
-# 1. Start infrastructure
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d
-
-# 2. Run the backend (in a separate terminal)
-cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-
-# 3. Run the frontend (in another terminal)
-cd frontend && npm run dev
-```
-
-### End your day
-
-```bash
-# Stop infrastructure (data is preserved in named volumes)
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml down
-```
-
-### Check logs while working
-
-```bash
-# All services
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs -f
-
-# One service only
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs -f postgres
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs -f pgadmin
-```
-
----
-
-## 3. Service Reference
-
-### PostgreSQL
-
-| Property | Value |
-|---|---|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `myproject` |
-| Username | `postgres` |
-| Password | `password` |
-| JDBC URL | `jdbc:postgresql://localhost:5432/myproject` |
-
-**Connect via psql:**
-```bash
-docker compose --env-file .env.local \
-  -f infrastructure/compose/dev.yml \
-  exec postgres psql -U postgres -d myproject
-```
-
-**Pre-installed extensions** (from [init.sql](file:///e:/Projects/SpringBootLearningDev/infrastructure/postgres/init.sql)):
-- `uuid-ossp` — generate UUIDs with `uuid_generate_v4()`
-- `pg_trgm` — fuzzy text search with trigrams
-
-### pgAdmin
-
-| Property | Value |
-|---|---|
-| URL | http://localhost:5050 |
-| Email | `admin@admin.com` |
-| Password | `admin` |
-
-**First-time pgAdmin setup** (one-time, saved in the volume):
-1. Open http://localhost:5050
-2. Click **Add New Server**
-3. Name: `myproject-local`
-4. Connection tab → Host: `postgres` *(container name, not localhost)*
-5. Port: `5432`, Username: `postgres`, Password: `password`
-6. Save
-
-> [!NOTE]
-> The host must be `postgres` (the Docker container name) — not `localhost`.
-> pgAdmin runs inside Docker and resolves service names via the Docker network.
-
----
-
-## 4. File Structure
+## 2. Directory Structure & Infrastructure Seeds
 
 ```text
 infrastructure/
+├── README.md           ← Future tools roadmap (Seeds for Redis, MailHog, MinIO, Keycloak, etc.)
 ├── compose/
-│   ├── database.yml    ← Phase 1: PostgreSQL + pgAdmin
-│   ├── dev.yml         ← Dev entry point (includes layers)
-│   └── prod.yml        ← Production: NGINX + backend + frontend + DB
-│
+│   ├── dev.yml         ← Dev stack: PostgreSQL 16 + pgAdmin 4
+│   └── prod.yml        ← Prod stack: NGINX + Backend + Frontend + PostgreSQL
 ├── nginx/
-│   └── nginx.conf      ← Reverse proxy config (used in prod only)
-│
+│   └── nginx.conf      ← Production reverse proxy config
 └── postgres/
-    └── init.sql        ← Runs once on first container creation
+    └── init.sql        ← Runs once on container init (installs uuid-ossp & pg_trgm)
 ```
 
-```text
-scripts/
-├── start-dev.sh        ← Wraps the docker compose up command
-├── stop-dev.sh         ← Wraps the docker compose down command
-├── backup-db.sh        ← pg_dump to ./backups/
-└── restore-db.sh       ← psql restore from latest backup
-```
-
-```text
-.env.example            ← Committed template (no secrets)
-.env.local              ← Your dev secrets (gitignored)
-.env.production         ← Prod secrets (gitignored, you create this)
-```
+Refer to [infrastructure/README.md](file:///e:/Projects/SpringBootLearningDev/infrastructure/README.md) when you are ready to add new services (e.g. Redis caching, MinIO file uploads, MailHog email testing).
 
 ---
 
-## 5. How the Layer System Works
-
-[`dev.yml`](file:///e:/Projects/SpringBootLearningDev/infrastructure/compose/dev.yml) uses Docker Compose `include` to assemble layers:
-
-```yaml
-# dev.yml — Phase 1
-include:
-  - database.yml
-
-  # Phase 2 — uncomment when adding Redis:
-  # - cache.yml
-```
-
-When you run `docker compose ... -f dev.yml up`, Docker reads `dev.yml`, then reads each included file, and merges them into a single virtual compose configuration.
-
-**What this means in practice:**
-
-| Phase | What you do | What runs |
-|---|---|---|
-| Now (Phase 1) | Nothing — it's the default | PostgreSQL + pgAdmin |
-| Phase 2 | Uncomment `- cache.yml` in `dev.yml` | + Redis + RedisInsight |
-| Phase 3 | Uncomment `- storage.yml` | + MinIO |
-| Phase 4 | Uncomment `- messaging.yml` | + RabbitMQ |
-
----
-
-## 6. Database Operations
+## 3. Database Operations
 
 ### Backup
-
-Backups are saved to `./backups/` with a timestamp:
-
 ```bash
 bash scripts/backup-db.sh
-# ✅ Backup saved to: ./backups/backup_20260724_165900.sql
+# Saved to ./backups/backup_YYYYMMDD_HHMMSS.sql
 ```
 
 ### Restore
-
-Restores from the **most recent** backup automatically:
-
 ```bash
 bash scripts/restore-db.sh
-# 🔄 Restoring from: ./backups/backup_20260724_165900.sql
-# ✅ Database restored successfully.
+# Restores from the most recent SQL file in ./backups/
 ```
 
-### Reset the database completely
-
-> [!WARNING]
-> This deletes all data permanently. Use only in development.
-
+### Complete Database Reset
 ```bash
-# Stop containers and remove volumes
 docker compose --env-file .env.local -f infrastructure/compose/dev.yml down -v
-
-# Start fresh — init.sql will run again
 docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d
 ```
 
 ---
 
-## 7. Production (Reference)
+## 4. Production Stack Reference
 
-Production requires `.env.production` to exist at the project root (never committed):
-
-```bash
-cp .env.example .env.production
-# Edit .env.production with real secrets
-```
-
-```bash
-# Start production stack
-docker compose --env-file .env.production -f infrastructure/compose/prod.yml up -d --build
-
-# Stop
-docker compose --env-file .env.production -f infrastructure/compose/prod.yml down
-```
-
-The production stack additionally runs:
-- **NGINX** on ports 80 and 443 (reverse proxy)
-- **Spring Boot** built from `backend/Dockerfile`
-- **React** built from `frontend/Dockerfile`
-
----
-
-## 8. Troubleshooting
-
-### Container won't start
-
-```bash
-# Check logs for the failing container
-docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs postgres
-```
-
-### Port already in use
-
-```bash
-# Find what's using port 5432
-netstat -ano | findstr :5432
-
-# Or change the port in .env.local
-DB_PORT=5433
-```
-
-### pgAdmin forgets the server connection
-
-The pgAdmin data volume may have been deleted. Re-add the server following the [First-time pgAdmin setup](#pgadmin) steps above.
-
-### `env file not found` error
-
-```
-couldn't find env file: .env.local
-```
-
-You haven't created `.env.local` yet:
-```bash
-cp .env.example .env.local
-```
-
-### Data disappeared after `docker compose down`
-
-Normal `down` preserves data. Data is only deleted when you add the `-v` flag (`down -v`).
-Check that you didn't accidentally run `down -v`.
-
-### Check what volumes exist
-
-```bash
-docker volume ls | findstr myproject
-# or on bash:
-docker volume ls | grep myproject
-```
+Production runs on an Azure Virtual Machine via `infrastructure/compose/prod.yml`:
+- **NGINX**: Ports 80 and 443 (routes `/api` to Spring Boot, `/` to React)
+- **Backend**: Built from `backend/Dockerfile` (Eclipse Temurin JRE 21 Alpine)
+- **Frontend**: Built from `frontend/Dockerfile` (Node 22 build $\rightarrow$ NGINX static serve)
+- **PostgreSQL**: PostgreSQL 16 Alpine with persisted volume `postgres-prod-data`

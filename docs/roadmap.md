@@ -1,43 +1,36 @@
-# Roadmap
+# Project Roadmap & Progress
 
-## Phase 1 — Foundation (Week 1)
-- [x] Project skeleton & directory structure
-- [ ] Spring Boot + PostgreSQL setup
-- [ ] Docker Compose (development)
-- [ ] Basic User CRUD
-- [ ] GitHub Actions CI (build + unit tests)
-- [ ] Environment configuration (.env)
+## Phase 1 — Foundation & Core Infrastructure
+- [x] Monorepo skeleton & directory structure
+- [x] Spring Boot 3.3 + Java 21 setup
+- [x] PostgreSQL 16 database integration
+- [x] Docker Compose development environment (`dev.yml`)
+- [x] Automated dev launchers (`scripts/run_dev.bat` & `scripts/run_dev.sh`)
+- [x] GitHub Actions CI & CD pipeline (`.github/workflows/ci.yml`)
+- [x] Automated Azure VM deployment over SSH & GHCR
 
-## Phase 2 — Quality & Standards (Week 2)
-- [ ] Flyway database migrations
-- [ ] Spotless (code formatting)
-- [ ] Checkstyle (coding standards)
-- [ ] Spring Boot Actuator (health & metrics)
-- [ ] OpenAPI / Swagger documentation
-- [ ] JaCoCo (test coverage)
+## Phase 2 — Quality & Frontend Dashboard
+- [x] React 18 + Vite 5 + TypeScript frontend integration
+- [x] Interactive Cloud Platform Dashboard UI (System health, API tester, Architecture map)
+- [x] Spring Boot Actuator health & metrics endpoints
+- [x] OpenAPI / Swagger documentation (`/swagger-ui.html`)
+- [ ] Flyway database migrations (In Progress)
+- [ ] Spotless & Checkstyle code formatting rules
 
-## Phase 3 — Security & Infrastructure (Week 3)
-- [ ] JWT authentication
-- [ ] Role-based authorization
-- [ ] NGINX reverse proxy
-- [ ] Production Dockerfiles
-- [ ] Deploy to Azure App Service
+## Phase 3 — Security & Production Hardening
+- [x] NGINX reverse proxy configuration
+- [x] Multi-stage production Dockerfiles (JRE 21 Alpine & NGINX)
+- [ ] JWT authentication & refresh tokens
+- [ ] Role-based access control (RBAC)
 
-## Phase 4 — Advanced Features (Later)
-- [ ] Redis caching
-- [ ] Azure Blob Storage (file uploads)
-- [ ] Email notifications
-- [ ] Azure Service Bus (async messaging)
+## Phase 4 — Future Services Roadmap (Seeds ready in `infrastructure/README.md`)
+- [ ] Redis caching & session management
+- [ ] MinIO / Azure Blob Storage for file uploads
+- [ ] MailHog / SMTP email notification integration
+- [ ] Async message queue (RabbitMQ)
 
-## Phase 5 — Observability (Later)
-- [ ] Grafana dashboards
-- [ ] Prometheus metrics
+## Phase 5 — Advanced Observability
+- [ ] Prometheus metrics scraping
+- [ ] Grafana monitoring dashboards
 - [ ] Loki log aggregation
 - [ ] Tempo distributed tracing
-- [ ] Alertmanager
-
-## Phase 6 — Scale (Later)
-- [ ] Kubernetes (AKS)
-- [ ] Terraform (infrastructure as code)
-- [ ] Keycloak (identity provider)
-- [ ] Microservices architecture

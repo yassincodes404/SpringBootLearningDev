@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# run_dev.sh — Unified Single-Terminal Dev Environment Launcher (Linux/Mac/Git Bash)
+# run_dev.sh — Smart Development Environment Launcher (Linux/Mac/Git Bash)
 # ==============================================================================
-# Runs both Spring Boot & Vite in the SAME terminal window with color-coded logs
-# Usage: bash scripts/run_dev.sh
-# Stops: Press Ctrl+C in this terminal window
+# Detects if PostgreSQL, Backend (8080), and Frontend (5173) are running.
+# If running: Reports active state & skips relaunching.
+# If not running: Launches background processes cleanly.
 # ==============================================================================
 
 set -euo pipefail
@@ -84,10 +84,10 @@ if ! docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -
 fi
 ok "Docker Compose services started"
 
-step "Waiting for PostgreSQL to be ready..."
+step "Waiting for PostgreSQL container health..."
 for i in $(seq 1 30); do
     if docker compose --env-file .env.local -f infrastructure/compose/dev.yml ps | grep -q "healthy"; then
-        ok "PostgreSQL is healthy and accepting connections"
+        ok "PostgreSQL database is HEALTHY on port 5432"
         break
     fi
     if [ "$i" -eq 30 ]; then
@@ -110,24 +110,41 @@ if [ ! -d "frontend/node_modules" ]; then
 fi
 
 # --------------------------------------------------
-# Step 5: Run Backend & Frontend in 1 Single Terminal
+# Step 5: Check & Launch Backend (Port 8080)
 # --------------------------------------------------
+step "Checking Spring Boot Backend status (Port 8080)..."
+if curl -sf http://localhost:8080/actuator/health >/dev/null 2>&1; then
+    ok "Spring Boot Backend is ALREADY RUNNING on port 8080"
+else
+    step "Launching Spring Boot Backend..."
+    (cd backend && chmod +x ./mvnw && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev -Dmaven.multiModuleProjectDirectory=.) &
+    ok "Spring Boot Backend process started"
+fi
+
+# --------------------------------------------------
+# Step 6: Check & Launch Frontend (Port 5173)
+# --------------------------------------------------
+step "Checking Vite Frontend status (Port 5173)..."
+if curl -sf http://localhost:5173 >/dev/null 2>&1; then
+    ok "Vite Frontend is ALREADY RUNNING on port 5173"
+else
+    step "Launching Vite Frontend..."
+    (cd frontend && npm run dev) &
+    ok "Vite Frontend process started"
+fi
+
+echo ""
 echo -e "${GREEN}================================================${NC}"
-echo -e "  Launching Services (Unified Stream)"
+echo -e "  Development Environment Active!"
 echo -e "${GREEN}================================================${NC}"
 echo ""
-echo -e "  Frontend (Vite):    ${CYAN}http://localhost:5173${NC}"
-echo -e "  Backend (Spring):   ${CYAN}http://localhost:8080${NC}"
-echo -e "  API Health Check:   ${CYAN}http://localhost:8080/actuator/health${NC}"
+echo -e "  Frontend (Vite UI): ${CYAN}http://localhost:5173${NC}"
+echo -e "  Backend API:        ${CYAN}http://localhost:8080${NC}"
+echo -e "  Actuator Health:    ${CYAN}http://localhost:8080/actuator/health${NC}"
 echo -e "  Swagger Docs:       ${CYAN}http://localhost:8080/swagger-ui.html${NC}"
 echo -e "  pgAdmin:            ${CYAN}http://localhost:5050${NC}"
-echo -e "  PostgreSQL:         ${CYAN}localhost:5432${NC}"
+echo -e "  PostgreSQL DB:      ${CYAN}localhost:5432${NC}"
 echo ""
-echo -e "  [BACKEND]  Logs will appear in BLUE"
-echo -e "  [FRONTEND] Logs will appear in CYAN"
-echo ""
-echo -e "  ${YELLOW}Press Ctrl+C to stop both services cleanly.${NC}"
+echo -e "  ${YELLOW}Run scripts/stop_dev.sh to stop background processes.${NC}"
 echo -e "${GREEN}================================================${NC}"
 echo ""
-
-npx --yes concurrently --kill-others --prefix "[{name}]" --names "BACKEND,FRONTEND" --prefix-colors "blue.bold,cyan.bold" "cd backend && chmod +x ./mvnw && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev -Dmaven.multiModuleProjectDirectory=." "cd frontend && npm run dev"
