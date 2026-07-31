@@ -2,7 +2,7 @@
 # Makefile — Common development commands
 # ==============================================================================
 
-.PHONY: help dev-up dev-down dev-logs build test test-unit test-integration \
+.PHONY: help dev dev-up dev-down dev-logs build test test-unit test-integration \
         lint format run frontend-install frontend-dev frontend-build \
         prod-up prod-down db-backup db-restore clean
 
@@ -13,12 +13,17 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+# --------------- Unified Dev ---------------
+
+dev: ## Start entire dev environment (DB + Backend + Frontend)
+	bash scripts/run_dev.sh
+
 # --------------- Development Infrastructure ---------------
 
-dev-up: ## Start development services (Phase 1: PostgreSQL + pgAdmin)
+dev-up: ## Start development infrastructure only (PostgreSQL + pgAdmin)
 	$(COMPOSE_DEV) up -d
 
-dev-down: ## Stop development services
+dev-down: ## Stop development infrastructure
 	$(COMPOSE_DEV) down
 
 dev-logs: ## Tail development service logs

@@ -16,10 +16,11 @@ spring:
       ddl-auto: validate
     show-sql: true
 
-  # ---- Mail (MailHog) ----
-  mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
+  # ---- Mail ----
+  # Uncomment when email functionality is needed (see infrastructure/README.md for MailHog setup)
+  # mail:
+  #   host: ${MAIL_HOST:localhost}
+  #   port: ${MAIL_PORT:1025}
 
   # ---- DevTools ----
   devtools:
