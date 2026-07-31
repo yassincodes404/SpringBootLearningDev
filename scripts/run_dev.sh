@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# run_dev.sh — Unified Development Environment Launcher (Linux/Mac/Git Bash)
+# run_dev.sh — Unified Single-Terminal Dev Environment Launcher (Linux/Mac/Git Bash)
 # ==============================================================================
+# Runs both Spring Boot & Vite in the SAME terminal window with color-coded logs
 # Usage: bash scripts/run_dev.sh
-# Stops: Press Ctrl+C (gracefully stops all services)
+# Stops: Press Ctrl+C in this terminal window
 # ==============================================================================
 
 set -euo pipefail
@@ -26,35 +27,6 @@ ok()    { echo -e "${GREEN} OK ${NC} $1"; }
 fail()  { echo -e "${RED}FAIL${NC} $1"; }
 info()  { echo -e "${GRAY}      $1${NC}"; }
 
-# Track PIDs for cleanup
-BACKEND_PID=""
-FRONTEND_PID=""
-
-cleanup() {
-    echo ""
-    step "Shutting down all services..."
-    
-    # Kill backend
-    if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
-        kill "$BACKEND_PID" 2>/dev/null || true
-        wait "$BACKEND_PID" 2>/dev/null || true
-    fi
-    
-    # Kill frontend
-    if [ -n "$FRONTEND_PID" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
-        kill "$FRONTEND_PID" 2>/dev/null || true
-        wait "$FRONTEND_PID" 2>/dev/null || true
-    fi
-    
-    # Stop Docker services
-    docker compose --env-file .env.local -f infrastructure/compose/dev.yml down 2>/dev/null || true
-    
-    ok "All services stopped. Goodbye!"
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM
-
 echo ""
 echo -e "${CYAN}================================================${NC}"
 echo -e "  Spring Boot Dev Environment Launcher"
@@ -66,33 +38,26 @@ echo ""
 # --------------------------------------------------
 step "Checking prerequisites..."
 
-# Check Docker
 if ! command -v docker &>/dev/null; then
     fail "Docker is not installed."
-    info "Install: https://docs.docker.com/engine/install/"
     exit 1
 fi
 ok "Docker: $(docker --version)"
 
-# Check Docker is running
 if ! docker info &>/dev/null; then
     fail "Docker daemon is not running."
     exit 1
 fi
 ok "Docker daemon is running"
 
-# Check Java
 if ! command -v java &>/dev/null; then
     fail "Java is not installed."
-    info "Install JDK 21: https://adoptium.net/temurin/releases/"
     exit 1
 fi
 ok "Java: $(java -version 2>&1 | head -1)"
 
-# Check Node.js
 if ! command -v node &>/dev/null; then
     fail "Node.js is not installed."
-    info "Install: https://nodejs.org/"
     exit 1
 fi
 ok "Node.js: $(node --version)"
@@ -100,18 +65,25 @@ ok "Node.js: $(node --version)"
 echo ""
 
 # --------------------------------------------------
-# Step 2: Start PostgreSQL + pgAdmin via Docker
+# Step 2: Check .env.local
+# --------------------------------------------------
+if [ ! -f ".env.local" ]; then
+    step "Creating .env.local from .env.example..."
+    cp .env.example .env.local
+    ok ".env.local created"
+fi
+
+# --------------------------------------------------
+# Step 3: Start PostgreSQL + pgAdmin via Docker
 # --------------------------------------------------
 step "Starting PostgreSQL and pgAdmin via Docker Compose..."
 
 if ! docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d 2>/dev/null; then
     fail "Failed to start Docker Compose services."
-    info "Make sure .env.local exists (copy from .env.example)"
     exit 1
 fi
 ok "Docker Compose services started"
 
-# Wait for PostgreSQL health
 step "Waiting for PostgreSQL to be ready..."
 for i in $(seq 1 30); do
     if docker compose --env-file .env.local -f infrastructure/compose/dev.yml ps | grep -q "healthy"; then
@@ -120,7 +92,6 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         fail "PostgreSQL did not become healthy within 30s"
-        info "Check logs: docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs postgres"
         exit 1
     fi
     sleep 1
@@ -129,7 +100,7 @@ done
 echo ""
 
 # --------------------------------------------------
-# Step 3: Install frontend dependencies if needed
+# Step 4: Install frontend dependencies if needed
 # --------------------------------------------------
 if [ ! -d "frontend/node_modules" ]; then
     step "Installing frontend dependencies..."
@@ -139,50 +110,24 @@ if [ ! -d "frontend/node_modules" ]; then
 fi
 
 # --------------------------------------------------
-# Step 4: Start Backend & Frontend
+# Step 5: Run Backend & Frontend in 1 Single Terminal
 # --------------------------------------------------
-step "Starting Spring Boot backend (dev profile)..."
-(cd backend && chmod +x ./mvnw && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev) &
-BACKEND_PID=$!
-
-# Poll for backend readiness
-step "Waiting for backend to be ready..."
-for i in $(seq 1 60); do
-    if curl -sf http://localhost:8080/actuator/health >/dev/null 2>&1; then
-        ok "Spring Boot backend is ready"
-        break
-    fi
-    if [ "$i" -eq 60 ]; then
-        fail "Backend did not start within 120s."
-        info "Run manually: cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev"
-    fi
-    sleep 2
-done
-
-echo ""
-step "Starting Vite frontend dev server..."
-(cd frontend && npm run dev) &
-FRONTEND_PID=$!
-
-sleep 3
-
-# --------------------------------------------------
-# Summary
-# --------------------------------------------------
-echo ""
 echo -e "${GREEN}================================================${NC}"
-echo -e "  All Services Running!"
+echo -e "  Launching Services (Unified Stream)"
 echo -e "${GREEN}================================================${NC}"
 echo ""
 echo -e "  Frontend (Vite):    ${CYAN}http://localhost:5173${NC}"
 echo -e "  Backend (Spring):   ${CYAN}http://localhost:8080${NC}"
 echo -e "  API Health Check:   ${CYAN}http://localhost:8080/actuator/health${NC}"
-echo -e "  Swagger / OpenAPI:  ${CYAN}http://localhost:8080/swagger-ui.html${NC}"
+echo -e "  Swagger Docs:       ${CYAN}http://localhost:8080/swagger-ui.html${NC}"
 echo -e "  pgAdmin:            ${CYAN}http://localhost:5050${NC}"
 echo -e "  PostgreSQL:         ${CYAN}localhost:5432${NC}"
 echo ""
-echo -e "  ${YELLOW}Press Ctrl+C to stop all services${NC}"
+echo -e "  [BACKEND]  Logs will appear in BLUE"
+echo -e "  [FRONTEND] Logs will appear in CYAN"
+echo ""
+echo -e "  ${YELLOW}Press Ctrl+C to stop both services cleanly.${NC}"
+echo -e "${GREEN}================================================${NC}"
 echo ""
 
-# Keep alive
-wait
+npx --yes concurrently --kill-others --prefix "[{name}]" --names "BACKEND,FRONTEND" --prefix-colors "blue.bold,cyan.bold" "cd backend && chmod +x ./mvnw && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev -Dmaven.multiModuleProjectDirectory=." "cd frontend && npm run dev"

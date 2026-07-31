@@ -69,6 +69,7 @@ GOTO error
 
 :execute
 "%JAVACMD%" ^
+  "-Dmaven.multiModuleProjectDirectory=%WRAPPER_DIR%" ^
   -classpath %WRAPPER_JAR% ^
   org.apache.maven.wrapper.MavenWrapperMain ^
   %MAVEN_CONFIG% %*

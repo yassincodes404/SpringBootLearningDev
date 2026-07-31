@@ -1,9 +1,10 @@
 @echo off
 :: ==============================================================================
-:: run_dev.bat — Unified Development Environment Launcher (Windows)
+:: run_dev.bat — Unified Single-Terminal Dev Environment Launcher (Windows)
 :: ==============================================================================
+:: Runs both Spring Boot & Vite in the SAME terminal window with color-coded logs
 :: Usage: scripts\run_dev.bat
-:: Stops: Close this window or press Ctrl+C
+:: Stops: Press Ctrl+C in this terminal window
 :: ==============================================================================
 
 setlocal enabledelayedexpansion
@@ -20,149 +21,103 @@ echo.
 :: --------------------------------------------------
 echo [DEV] Checking prerequisites...
 
-:: Check Docker
 docker --version >nul 2>&1
 if errorlevel 1 (
     echo [FAIL] Docker is not installed or not in PATH.
-    echo        Install Docker Desktop: https://docs.docker.com/desktop/install/windows-install/
-    pause
-    exit /b 1
+    pause & exit /b 1
 )
 for /f "delims=" %%v in ('docker --version 2^>nul') do echo [ OK ] Docker: %%v
 
-:: Check Docker daemon
 docker info >nul 2>&1
 if errorlevel 1 (
     echo [FAIL] Docker daemon is not running. Please start Docker Desktop.
-    pause
-    exit /b 1
+    pause & exit /b 1
 )
 echo [ OK ] Docker daemon is running
 
-:: Check Java
 java -version >nul 2>&1
 if errorlevel 1 (
     echo [FAIL] Java is not installed or not in PATH.
-    echo        Install JDK 21: https://adoptium.net/temurin/releases/
-    pause
-    exit /b 1
+    pause & exit /b 1
 )
 for /f "tokens=*" %%v in ('java -version 2^>^&1 ^| findstr /i "version"') do echo [ OK ] Java: %%v
 
-:: Check Node.js
 node --version >nul 2>&1
 if errorlevel 1 (
     echo [FAIL] Node.js is not installed or not in PATH.
-    echo        Install Node.js: https://nodejs.org/
-    pause
-    exit /b 1
+    pause & exit /b 1
 )
 for /f "delims=" %%v in ('node --version 2^>nul') do echo [ OK ] Node.js: %%v
 
 echo.
 
 :: --------------------------------------------------
-:: Step 2: Check .env.local exists
+:: Step 2: Check .env.local
 :: --------------------------------------------------
 if not exist ".env.local" (
-    echo [FAIL] .env.local not found. Copying from .env.example...
+    echo [WARN] .env.local not found. Copying from .env.example...
     copy .env.example .env.local >nul
     echo [ OK ] Created .env.local from .env.example
 )
 
 :: --------------------------------------------------
-:: Step 3: Start PostgreSQL + pgAdmin via Docker
+:: Step 3: Start PostgreSQL + pgAdmin
 :: --------------------------------------------------
 echo [DEV] Starting PostgreSQL and pgAdmin via Docker Compose...
 docker compose --env-file .env.local -f infrastructure/compose/dev.yml up -d
 if errorlevel 1 (
     echo [FAIL] Failed to start Docker Compose services.
-    pause
-    exit /b 1
+    pause & exit /b 1
 )
 echo [ OK ] Docker Compose services started
 
-:: Wait for PostgreSQL health
 echo [DEV] Waiting for PostgreSQL to be ready...
 set retries=0
 :wait_pg
 set /a retries+=1
 if %retries% gtr 30 (
     echo [FAIL] PostgreSQL did not become healthy within 30s
-    echo        Check logs: docker compose --env-file .env.local -f infrastructure/compose/dev.yml logs postgres
-    pause
-    exit /b 1
+    pause & exit /b 1
 )
 timeout /t 1 /nobreak >nul
 docker compose --env-file .env.local -f infrastructure/compose/dev.yml ps 2>nul | findstr /i "healthy" >nul
 if errorlevel 1 goto wait_pg
-echo [ OK ] PostgreSQL is healthy and accepting connections
+echo [ OK ] PostgreSQL is healthy
 echo.
 
 :: --------------------------------------------------
-:: Step 4: Install frontend dependencies if needed
+:: Step 4: Install frontend deps if needed
 :: --------------------------------------------------
 if not exist "frontend\node_modules" (
     echo [DEV] Installing frontend dependencies...
-    cd frontend
-    call npm install
-    cd ..
+    cd frontend && call npm install && cd ..
     echo [ OK ] Frontend dependencies installed
     echo.
 )
 
 :: --------------------------------------------------
-:: Step 5: Start Backend in background
+:: Step 5: Run Backend & Frontend in 1 Single Terminal
 :: --------------------------------------------------
-echo [DEV] Starting Spring Boot backend (dev profile)...
-start "SpringBoot-Backend" cmd /c "cd /d %cd%\backend && mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev"
-
-:: Wait for backend readiness
-echo [DEV] Waiting for backend to be ready (this may take 30-60s)...
-set retries=0
-:wait_backend
-set /a retries+=1
-if %retries% gtr 60 (
-    echo [WARN] Backend did not respond within 120s. It may still be starting.
-    echo        Check the Spring Boot window for errors.
-    goto start_frontend
-)
-timeout /t 2 /nobreak >nul
-curl -sf http://localhost:8080/actuator/health >nul 2>&1
-if errorlevel 1 goto wait_backend
-echo [ OK ] Spring Boot backend is ready
-echo.
-
-:: --------------------------------------------------
-:: Step 6: Start Frontend
-:: --------------------------------------------------
-:start_frontend
-echo [DEV] Starting Vite frontend dev server...
-start "Vite-Frontend" cmd /c "cd /d %cd%\frontend && npm run dev"
-
-timeout /t 3 /nobreak >nul
-
-:: --------------------------------------------------
-:: Summary
-:: --------------------------------------------------
-echo.
 echo ================================================
-echo   All Services Running!
+echo   Launching Services (Unified Stream)
 echo ================================================
 echo.
 echo   Frontend (Vite):    http://localhost:5173
 echo   Backend (Spring):   http://localhost:8080
-echo   API Health Check:   http://localhost:8080/actuator/health
-echo   Swagger / OpenAPI:  http://localhost:8080/swagger-ui.html
+echo   Health Check:       http://localhost:8080/actuator/health
+echo   Swagger Docs:       http://localhost:8080/swagger-ui.html
 echo   pgAdmin:            http://localhost:5050
 echo   PostgreSQL:         localhost:5432
 echo.
-echo   Backend and Frontend are running in separate windows.
-echo   Close those windows or press Ctrl+C in them to stop.
+echo   [BACKEND]  Logs will appear in BLUE
+echo   [FRONTEND] Logs will appear in CYAN
 echo.
-echo ================================================
-echo   To stop infrastructure (PostgreSQL + pgAdmin):
-echo   docker compose --env-file .env.local -f infrastructure/compose/dev.yml down
+echo   Press Ctrl+C to stop both services cleanly.
 echo ================================================
 echo.
+
+call npx --yes concurrently --kill-others --prefix "[{name}]" --names "BACKEND,FRONTEND" --prefix-colors "blue.bold,cyan.bold" "cd backend && call mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev -Dmaven.multiModuleProjectDirectory=." "cd frontend && npm run dev"
+
+echo.
+echo [DEV] Development session ended.
 pause
