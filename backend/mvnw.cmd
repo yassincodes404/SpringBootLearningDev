@@ -27,6 +27,7 @@
 
 @REM Set the current directory to the location of this script
 SET WRAPPER_DIR=%~dp0
+IF "%WRAPPER_DIR:~-1%"=="\" SET WRAPPER_DIR=%WRAPPER_DIR:~0,-1%
 
 @REM Find java.exe
 IF NOT "%JAVA_HOME%"=="" GOTO findJavaFromJavaHome
