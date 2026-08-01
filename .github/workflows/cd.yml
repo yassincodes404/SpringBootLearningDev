@@ -1,60 +1,146 @@
 # ==============================================================================
 # CD Pipeline — Continuous Deployment
 # ==============================================================================
-# Triggered when CI passes on main branch.
+# Builds production images, pushes them to GitHub Container Registry, and deploys
+# the stack to an Azure VM over SSH using Docker Compose.
 # ==============================================================================
 
 name: CD
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DEPLOY_PATH: /opt/myproject
 
 jobs:
-  deploy:
-    name: Deploy to Azure
+  build-and-push:
+    name: Build and push images
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    outputs:
+      deploy_tag: ${{ steps.deploy-tag.outputs.value }}
+      backend_image: ${{ steps.image-vars.outputs.backend_image }}
+      frontend_image: ${{ steps.image-vars.outputs.frontend_image }}
 
     steps:
-      # ---- Checkout ----
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ---- Docker Build ----
-      - name: Build Docker image
-        working-directory: backend
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image names
+        id: image-vars
+        shell: bash
         run: |
-          docker build -t myproject-backend:${{ github.sha }} .
-          docker tag myproject-backend:${{ github.sha }} myproject-backend:latest
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          repo_name="${repo_name,,}"
+          echo "backend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${repo_name}-backend" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${repo_name}-frontend" >> "$GITHUB_OUTPUT"
 
-      # TODO: Push to Azure Container Registry
-      # - name: Login to ACR
-      #   uses: azure/docker-login@v1
-      #   with:
-      #     login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-      #     username: ${{ secrets.ACR_USERNAME }}
-      #     password: ${{ secrets.ACR_PASSWORD }}
-      #
-      # - name: Push to ACR
-      #   run: |
-      #     docker tag myproject-backend:latest ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
-      #     docker push ${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest
+      - name: Create deployment tag
+        id: deploy-tag
+        shell: bash
+        run: echo "value=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
-      # TODO: Deploy to Azure App Service
-      # - name: Deploy to Azure
-      #   uses: azure/webapps-deploy@v3
-      #   with:
-      #     app-name: 'myproject-backend'
-      #     images: '${{ secrets.ACR_LOGIN_SERVER }}/myproject-backend:latest'
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image-vars.outputs.backend_image }}:latest
+            ${{ steps.image-vars.outputs.backend_image }}:${{ steps.deploy-tag.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # TODO: Health Check
-      # - name: Verify deployment
-      #   run: |
-      #     sleep 30
-      #     curl -f https://myproject-backend.azurewebsites.net/actuator/health
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image-vars.outputs.frontend_image }}:latest
+            ${{ steps.image-vars.outputs.frontend_image }}:${{ steps.deploy-tag.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Deployment placeholder
-        run: echo "🚀 CD pipeline is configured but deployment targets are not yet set up."
+  deploy:
+    name: Deploy to Azure VM
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AZURE_VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.AZURE_VM_HOST }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Create deployment directory
+        shell: bash
+        run: |
+          deploy_path="${{ secrets.AZURE_VM_DEPLOY_PATH }}"
+          if [ -z "$deploy_path" ]; then
+            deploy_path="${{ env.DEPLOY_PATH }}"
+          fi
+          echo "DEPLOY_PATH=$deploy_path" >> "$GITHUB_ENV"
+          ssh -o StrictHostKeyChecking=yes -p "${{ secrets.AZURE_VM_PORT }}" "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" "mkdir -p '$deploy_path'"
+
+      - name: Copy deployment assets
+        shell: bash
+        run: |
+          scp -o StrictHostKeyChecking=yes -P "${{ secrets.AZURE_VM_PORT }}" -r infrastructure "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:${{ env.DEPLOY_PATH }}/"
+
+      - name: Create deployment environment file
+        shell: bash
+        run: |
+          cat > .env.production <<EOF
+          BACKEND_IMAGE=${{ needs.build-and-push.outputs.backend_image }}:${{ needs.build-and-push.outputs.deploy_tag }}
+          FRONTEND_IMAGE=${{ needs.build-and-push.outputs.frontend_image }}:${{ needs.build-and-push.outputs.deploy_tag }}
+          DB_HOST=postgres
+          DB_PORT=5432
+          DB_NAME=${{ secrets.PROD_DB_NAME }}
+          DB_USERNAME=${{ secrets.PROD_DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+          JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
+          EOF
+
+      - name: Upload deployment environment file
+        shell: bash
+        run: |
+          scp -o StrictHostKeyChecking=yes -P "${{ secrets.AZURE_VM_PORT }}" .env.production "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:${{ env.DEPLOY_PATH }}/.env.production"
+
+      - name: Deploy Docker Compose stack
+        shell: bash
+        run: |
+          ssh -o StrictHostKeyChecking=yes -p "${{ secrets.AZURE_VM_PORT }}" "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" "cd '${{ env.DEPLOY_PATH }}' && docker compose -f infrastructure/compose/prod.yml --env-file .env.production pull && docker compose -f infrastructure/compose/prod.yml --env-file .env.production up -d --remove-orphans"
+
+      - name: Verify backend health
+        shell: bash
+        run: |
+          ssh -o StrictHostKeyChecking=yes -p "${{ secrets.AZURE_VM_PORT }}" "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" "for i in {1..12}; do if docker inspect --format='{{.State.Health.Status}}' myproject-backend | grep -q healthy; then exit 0; fi; sleep 10; done; exit 1"
